@@ -1,0 +1,10 @@
+"use server";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+async function requireAdmin() { const s=await createClient(); const {data:{user}}=await s.auth.getUser(); if(!user) redirect("/"); const {data:p}=await s.from("profiles").select("role").eq("id",user.id).single(); if(p?.role!=="ADMIN") throw new Error("Akses ditolak"); return s; }
+export async function saveStudent(fd:FormData){ const s=await requireAdmin(); const id=String(fd.get("id")||""); const payload={student_no:String(fd.get("student_no")||"").trim(),full_name:String(fd.get("full_name")||"").trim(),class_id:String(fd.get("class_id")||"")||null,is_active:true}; if(!payload.student_no||!payload.full_name) throw new Error("NIS dan nama wajib diisi"); const q=id?s.from("students").update(payload).eq("id",id):s.from("students").insert(payload); const {error}=await q; if(error) throw new Error(error.message); revalidatePath("/admin/students"); }
+export async function createInvoice(fd:FormData){ const s=await requireAdmin(); const amount=Number(fd.get("amount")); const {error}=await s.rpc("create_school_invoice",{p_student_id:String(fd.get("student_id")),p_fee_type_id:String(fd.get("fee_type_id"))||null,p_description:String(fd.get("description")||"Tagihan sekolah"),p_amount:amount,p_issued_on:String(fd.get("issued_on")),p_due_on:String(fd.get("due_on"))}); if(error) throw new Error(error.message); revalidatePath("/admin/invoices"); revalidatePath("/admin/dashboard"); }
+export async function recordPayment(fd:FormData){ const s=await requireAdmin(); const {error}=await s.rpc("record_school_payment",{p_student_id:String(fd.get("student_id")),p_invoice_id:String(fd.get("invoice_id")),p_amount:Number(fd.get("amount")),p_method:String(fd.get("method")||"Transfer Bank")}); if(error) throw new Error(error.message); revalidatePath("/admin/payments"); revalidatePath("/admin/invoices"); revalidatePath("/admin/dashboard"); revalidatePath("/admin/reports"); }
+export async function logout(){ const s=await createClient(); await s.auth.signOut(); redirect("/"); }

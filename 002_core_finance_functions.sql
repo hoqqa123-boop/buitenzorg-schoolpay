@@ -1,0 +1,3 @@
+-- Remote production-equivalent migration is recorded in Supabase migration history.
+-- Core RPCs are intentionally SECURITY INVOKER and still protected by RLS + ADMIN role checks.
+-- See docs/PHASE_4_COMPLETE.md for the applied migration names.
